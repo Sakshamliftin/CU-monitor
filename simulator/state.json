@@ -1,0 +1,36 @@
+{
+  "uptime": "12 days",
+  "rns": [
+    {
+      "id": "RN1",
+      "state": "ACTIVE"
+    },
+    {
+      "id": "RN2",
+      "state": "IDLE"
+    },
+    {
+      "id": "RN3",
+      "state": "IDLE"
+    },
+    {
+      "id": "RN4",
+      "state": "OOS"
+    },
+    {
+      "id": "RN5",
+      "state": "ACTIVE"
+    }
+  ],
+  "cells": [
+    {
+      "pci": 101
+    },
+    {
+      "pci": 102
+    },
+    {
+      "pci": 103
+    }
+  ]
+}

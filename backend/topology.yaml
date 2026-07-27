@@ -1,0 +1,99 @@
+# Telecom Lab Monitoring System — Topology Configuration
+# -------------------------------------------------------
+# Add or remove CUs/RNs here without changing any code.
+# Each CU has a name, IP, and a list of connected RNs.
+
+settings:
+  poll_interval_sec: 10         # How often to poll all devices
+  max_workers: 5                 # ThreadPoolExecutor pool size
+
+cus:
+  - name: CU-01
+    ip: "192.168.0.207"
+    rns:
+      - { name: "RN-01-01", ip: "10.0.1.11" }
+      - { name: "RN-01-02", ip: "10.0.1.12" }
+      - { name: "RN-01-03", ip: "10.0.1.13" }
+      - { name: "RN-01-04", ip: "10.0.1.14" }
+      - { name: "RN-01-05", ip: "10.0.1.15" }
+
+  - name: CU-02
+    ip: "10.0.2.1"
+    rns:
+      - { name: "RN-02-01", ip: "10.0.2.11" }
+      - { name: "RN-02-02", ip: "10.0.2.12" }
+      - { name: "RN-02-03", ip: "10.0.2.13" }
+      - { name: "RN-02-04", ip: "10.0.2.14" }
+      - { name: "RN-02-05", ip: "10.0.2.15" }
+
+  - name: CU-03
+    ip: "10.0.3.1"
+    rns:
+      - { name: "RN-03-01", ip: "10.0.3.11" }
+      - { name: "RN-03-02", ip: "10.0.3.12" }
+      - { name: "RN-03-03", ip: "10.0.3.13" }
+      - { name: "RN-03-04", ip: "10.0.3.14" }
+      - { name: "RN-03-05", ip: "10.0.3.15" }
+
+  - name: CU-04
+    ip: "10.0.4.1"
+    rns:
+      - { name: "RN-04-01", ip: "10.0.4.11" }
+      - { name: "RN-04-02", ip: "10.0.4.12" }
+      - { name: "RN-04-03", ip: "10.0.4.13" }
+      - { name: "RN-04-04", ip: "10.0.4.14" }
+      - { name: "RN-04-05", ip: "10.0.4.15" }
+
+  - name: CU-05
+    ip: "10.0.5.1"
+    rns:
+      - { name: "RN-05-01", ip: "10.0.5.11" }
+      - { name: "RN-05-02", ip: "10.0.5.12" }
+      - { name: "RN-05-03", ip: "10.0.5.13" }
+      - { name: "RN-05-04", ip: "10.0.5.14" }
+      - { name: "RN-05-05", ip: "10.0.5.15" }
+
+  - name: CU-06
+    ip: "10.0.6.1"
+    rns:
+      - { name: "RN-06-01", ip: "10.0.6.11" }
+      - { name: "RN-06-02", ip: "10.0.6.12" }
+      - { name: "RN-06-03", ip: "10.0.6.13" }
+      - { name: "RN-06-04", ip: "10.0.6.14" }
+      - { name: "RN-06-05", ip: "10.0.6.15" }
+
+  - name: CU-07
+    ip: "10.0.7.1"
+    rns:
+      - { name: "RN-07-01", ip: "10.0.7.11" }
+      - { name: "RN-07-02", ip: "10.0.7.12" }
+      - { name: "RN-07-03", ip: "10.0.7.13" }
+      - { name: "RN-07-04", ip: "10.0.7.14" }
+      - { name: "RN-07-05", ip: "10.0.7.15" }
+
+  - name: CU-08
+    ip: "10.0.8.1"
+    rns:
+      - { name: "RN-08-01", ip: "10.0.8.11" }
+      - { name: "RN-08-02", ip: "10.0.8.12" }
+      - { name: "RN-08-03", ip: "10.0.8.13" }
+      - { name: "RN-08-04", ip: "10.0.8.14" }
+      - { name: "RN-08-05", ip: "10.0.8.15" }
+
+  - name: CU-09
+    ip: "10.0.9.1"
+    rns:
+      - { name: "RN-09-01", ip: "10.0.9.11" }
+      - { name: "RN-09-02", ip: "10.0.9.12" }
+      - { name: "RN-09-03", ip: "10.0.9.13" }
+      - { name: "RN-09-04", ip: "10.0.9.14" }
+      - { name: "RN-09-05", ip: "10.0.9.15" }
+
+  - name: CU-10
+    ip: "10.0.10.1"
+    rns:
+      - { name: "RN-10-01", ip: "10.0.10.11" }
+      - { name: "RN-10-02", ip: "10.0.10.12" }
+      - { name: "RN-10-03", ip: "10.0.10.13" }
+      - { name: "RN-10-04", ip: "10.0.10.14" }
+      - { name: "RN-10-05", ip: "10.0.10.15" }
