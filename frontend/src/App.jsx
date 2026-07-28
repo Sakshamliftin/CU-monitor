@@ -12,11 +12,14 @@ const getWsUrl = () => {
 };
 
 const API_URL = '/api/state';
+const HISTORY_URL = '/api/history';
 const RECONNECT_DELAY_MS = 3000;
 
 function App() {
   const [nodes, setNodes] = useState([]);
   const [events, setEvents] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [selectedNodeId, setSelectedNodeId] = useState('ALL');
   const [connected, setConnected] = useState(false);
   const [filter, setFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('ALL');
@@ -85,6 +88,23 @@ function App() {
     }
   }, []);
 
+  const refreshHistory = useCallback(() => {
+    fetch(HISTORY_URL)
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data.history)) {
+          setHistory(data.history);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    refreshHistory();
+    const timer = setInterval(refreshHistory, 60000);
+    return () => clearInterval(timer);
+  }, [refreshHistory]);
+
   // -----------------------------------------------------------------------
   // Derived data — filtering & sorting
   // -----------------------------------------------------------------------
@@ -125,6 +145,57 @@ function App() {
     const cus = new Set(nodes.map((n) => n.cu_name)).size;
     return { total, healthy, reboots, cus };
   }, [nodes]);
+
+  const historyBars = useMemo(() => {
+    const buckets = new Map();
+    const filteredHistory =
+      selectedNodeId === 'ALL'
+        ? history
+        : history.filter((entry) => entry.rn_id === selectedNodeId);
+
+    filteredHistory.forEach((entry) => {
+      const timestamp = new Date(entry.timestamp);
+      if (Number.isNaN(timestamp.getTime())) return;
+
+      const key = new Date(timestamp);
+      key.setMinutes(0, 0, 0);
+      const bucketKey = key.toISOString();
+      const current = buckets.get(bucketKey) || { label: '', count: 0, ts: key };
+      current.count += 1;
+      current.label = key.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      buckets.set(bucketKey, current);
+    });
+
+    return Array.from(buckets.values())
+      .sort((a, b) => a.ts - b.ts)
+      .slice(-8)
+      .map((item) => ({
+        ...item,
+        height: Math.min(72, Math.max(12, item.count * 12)),
+      }));
+  }, [history, selectedNodeId]);
+
+  const nodeOptions = useMemo(() => {
+    return [...nodes]
+      .sort((a, b) => `${a.cu_name}-${a.rn_name}`.localeCompare(`${b.cu_name}-${b.rn_name}`))
+      .map((node) => ({
+        value: `${node.cu_name}-${node.rn_id}`,
+        label: `${node.cu_name} / ${node.rn_name}`,
+      }));
+  }, [nodes]);
+
+  const selectedNodeLabel = useMemo(() => {
+    if (selectedNodeId === 'ALL') return 'All nodes';
+    const node = nodes.find((item) => `${item.cu_name}-${item.rn_id}` === selectedNodeId);
+    return node ? `${node.cu_name} / ${node.rn_name}` : 'Selected node';
+  }, [nodes, selectedNodeId]);
+
+  const selectedHistoryRows = useMemo(() => {
+    if (selectedNodeId === 'ALL') return history.slice(0, 8);
+    return history
+      .filter((entry) => entry.rn_id === selectedNodeId)
+      .slice(0, 8);
+  }, [history, selectedNodeId]);
 
   // -----------------------------------------------------------------------
   // Sorting handler
@@ -177,6 +248,53 @@ function App() {
             {stats.reboots}
           </div>
         </div>
+      </div>
+
+      {/* History graph */}
+      <div className="history-panel">
+        <div className="history-header">
+          <div>
+            <h2>Status History</h2>
+            <p>Recent state-change volume by hour</p>
+          </div>
+          <div className="history-controls">
+            <select value={selectedNodeId} onChange={(e) => setSelectedNodeId(e.target.value)}>
+              <option value="ALL">All nodes</option>
+              {nodeOptions.map((node) => (
+                <option key={node.value} value={node.value}>
+                  {node.label}
+                </option>
+              ))}
+            </select>
+            <span className="history-count">{selectedNodeLabel}</span>
+          </div>
+        </div>
+        {historyBars.length === 0 ? (
+          <div className="history-empty">Waiting for history data...</div>
+        ) : (
+          <div className="history-chart" aria-label="Status history chart">
+            {historyBars.map((bar) => (
+              <div className="history-bar-group" key={bar.ts.toISOString()}>
+                <div className="history-bar" style={{ height: `${bar.height}px` }} />
+                <span>{bar.label}</span>
+                <small>{bar.count}</small>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="history-footer">{history.length} records total</div>
+
+        {selectedNodeId !== 'ALL' && selectedHistoryRows.length > 0 && (
+          <div className="history-list">
+            {selectedHistoryRows.map((entry) => (
+              <div className="history-list-row" key={`${entry.timestamp}-${entry.rn_id}-${entry.new_status}`}>
+                <span>{entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '—'}</span>
+                <span>{entry.old_status || '—'} → {entry.new_status}</span>
+                <span>{entry.rn_id}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Filters */}
