@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from config import CUConfig, RNConfig
 from connection.mock_connection import MockConnection
 from connection.paramiko_stub import ParamikoConnection
 from events.event_manager import EventManager
@@ -66,13 +68,16 @@ class MonitorService:
         self._events = event_manager
         self._ws = ws_manager
         self._db = db_manager
+        self._settings_lock = threading.Lock()
 
     def poll_all(self) -> None:
         logger.info("=== Poll cycle start ===")
+        with self._settings_lock:
+            cus = list(self._settings.cus)
         with ThreadPoolExecutor(max_workers=self._settings.max_workers) as pool:
             futures = {
                 pool.submit(self._poll_cu, cu): cu
-                for cu in self._settings.cus
+                for cu in cus
             }
             for future in as_completed(futures):
                 cu = futures[future]
@@ -84,13 +89,77 @@ class MonitorService:
         self._broadcast_state()
         logger.info("=== Poll cycle end ===")
 
+    def discover_and_add_cu(self, cu_ip: str, cu_name: str | None = None) -> CUConfig:
+        """Discover a CU's connected RNs over SSH and add it to the poll list."""
+        normalized_ip = cu_ip.strip()
+        if not normalized_ip:
+            raise ValueError("CU IP is required")
+
+        with self._settings_lock:
+            if any(cu.ip == normalized_ip for cu in self._settings.cus):
+                raise ValueError(f"CU {normalized_ip} is already registered")
+
+        discovered = self._discover_remote_cu(normalized_ip, cu_name)
+
+        with self._settings_lock:
+            self._settings.cus.append(discovered)
+
+        return discovered
+
+    def remove_cu(self, cu_ip: str) -> CUConfig:
+        """Remove a CU from polling and clear its current state."""
+        normalized_ip = cu_ip.strip()
+        if not normalized_ip:
+            raise ValueError("CU IP is required")
+
+        with self._settings_lock:
+            for index, cu in enumerate(self._settings.cus):
+                if cu.ip == normalized_ip:
+                    removed = self._settings.cus.pop(index)
+                    self._state.remove_cu(removed.name)
+                    self._db.delete_current_status_by_cu(removed.name)
+                    return removed
+
+        raise ValueError(f"CU {normalized_ip} was not found")
+
+    def _discover_remote_cu(self, cu_ip: str, cu_name: str | None = None) -> CUConfig:
+        ssh_username = os.environ.get("SSH_USERNAME", "vboxuser")
+        ssh_password = os.environ.get("SSH_PASSWORD", "123")
+        remote_dir = os.environ.get("CU_SIMULATOR_DIR", "/home/vboxuser/cu_simulator")
+        remote_script = os.environ.get("CU_SIMULATOR_SCRIPT", "cu_simulator.py")
+
+        with ParamikoConnection(
+            host=cu_ip,
+            username=ssh_username,
+            password=ssh_password,
+            remote_command_template=(
+                f"cd {remote_dir} && python3 {remote_script} {{command}}"
+            ),
+        ) as conn:
+            raw_radionode = conn.execute("show radionode")
+
+        rn_table = parse_radionode_table(raw_radionode)
+        if not rn_table:
+            raise ValueError(f"Could not discover any RNs from CU {cu_ip}")
+
+        discovered_rns: list[RNConfig] = []
+        for row in rn_table:
+            rn_name = row.get("name") or f"RN-{row.get('rn_id', 'unknown')}"
+            rn_ip = row.get("ip") or ""
+            if rn_ip == "-":
+                rn_ip = ""
+            discovered_rns.append(RNConfig(name=rn_name, ip=rn_ip))
+
+        resolved_name = (cu_name or "").strip() or f"CU-{cu_ip.replace('.', '-')}"
+        return CUConfig(name=resolved_name, ip=cu_ip, rns=discovered_rns)
+
     def _poll_cu(self, cu: CUConfig) -> None:
         logger.debug("Polling CU %s (%s) — %d RNs", cu.name, cu.ip, len(cu.rns))
 
         if cu.ip.startswith("10.0."):
             # Legacy MockConnection logic
             for rn_cfg in cu.rns:
-                self._poll_rn(cu.name, cu.name, rn_cfg.name, rn_cfg.ip)
+                self._poll_rn(cu.name, cu.name, cu.ip, rn_cfg.name, rn_cfg.ip)
             return
 
         # Real SSH polling logic
@@ -165,6 +234,7 @@ class MonitorService:
                     rn_id=rn_id,
                     cu_id=cu.name,
                     cu_name=cu.name,
+                    cu_ip=cu.ip,
                     rn_name=rn_cfg.name,
                     ip=rn_ip,
                     pci=pci,
@@ -198,7 +268,7 @@ class MonitorService:
         except Exception:
             logger.exception("Failed to SSH poll CU %s (%s)", cu.name, cu.ip)
 
-    def _poll_rn(self, cu_id: str, cu_name: str, rn_name: str, rn_ip: str) -> None:
+    def _poll_rn(self, cu_id: str, cu_name: str, cu_ip: str, rn_name: str, rn_ip: str) -> None:
         try:
             conn = MockConnection(host=rn_ip)
             with conn:
@@ -221,6 +291,7 @@ class MonitorService:
                 rn_id=rn_id,
                 cu_id=cu_id,
                 cu_name=cu_name,
+                cu_ip=cu_ip,
                 rn_name=rn_name,
                 ip=rn_ip,
                 pci=pci,

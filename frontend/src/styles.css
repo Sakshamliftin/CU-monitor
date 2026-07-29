@@ -58,6 +58,105 @@ body {
   color: var(--text-muted);
 }
 
+/* --- CU discovery bar ----------------------------------- */
+.discover-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.discover-bar input {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 200px;
+}
+
+.discover-bar input:focus {
+  border-color: var(--accent);
+}
+
+.discover-bar button {
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.discover-bar button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.delete-bar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: stretch;
+  flex-wrap: nowrap;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.delete-bar select {
+  flex: 1;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  outline: none;
+  min-width: 0;
+  min-height: 38px;
+}
+
+.delete-bar select:focus {
+  border-color: var(--state-rebooted);
+}
+
+.delete-bar button.danger {
+  background: var(--state-oos);
+  color: white;
+  min-height: 38px;
+  padding: 8px 16px;
+  white-space: nowrap;
+}
+
+.delete-bar button.danger:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.discover-message {
+  margin: -6px 0 14px;
+  font-size: 0.8rem;
+}
+
+.discover-message.success {
+  color: var(--state-healthy);
+}
+
+.discover-message.error {
+  color: var(--state-oos);
+}
+
 /* Connection badge */
 .conn-badge {
   display: inline-flex;
@@ -393,6 +492,11 @@ tbody tr:hover {
   body { padding: 12px; }
   .stats-row { flex-direction: column; }
   td, th { padding: 8px 10px; font-size: 0.78rem; }
+  .discover-bar input,
+  .discover-bar button { width: 100%; }
+  .delete-bar { flex-wrap: wrap; }
+  .delete-bar select,
+  .delete-bar button { width: 100%; }
   .history-header { flex-direction: column; }
   .history-controls { width: 100%; justify-content: flex-start; }
   .history-controls select { width: 100%; max-width: none; }

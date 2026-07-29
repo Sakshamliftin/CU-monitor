@@ -8,14 +8,14 @@ settings:
   max_workers: 5                 # ThreadPoolExecutor pool size
 
 cus:
-  - name: CU-01
-    ip: "192.168.0.207"
-    rns:
-      - { name: "RN-01-01", ip: "10.0.1.11" }
-      - { name: "RN-01-02", ip: "10.0.1.12" }
-      - { name: "RN-01-03", ip: "10.0.1.13" }
-      - { name: "RN-01-04", ip: "10.0.1.14" }
-      - { name: "RN-01-05", ip: "10.0.1.15" }
+  # - name: CU-01
+  #   ip: "192.168.0.207"
+  #   rns:
+  #     - { name: "RN-01-01", ip: "10.0.1.11" }
+  #     - { name: "RN-01-02", ip: "10.0.1.12" }
+  #     - { name: "RN-01-03", ip: "10.0.1.13" }
+  #     - { name: "RN-01-04", ip: "10.0.1.14" }
+  #     - { name: "RN-01-05", ip: "10.0.1.15" }
 
   - name: CU-02
     ip: "10.0.2.1"

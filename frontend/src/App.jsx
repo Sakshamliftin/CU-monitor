@@ -20,6 +20,15 @@ function App() {
   const [events, setEvents] = useState([]);
   const [history, setHistory] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState('ALL');
+  const [newCuIp, setNewCuIp] = useState('');
+  const [newCuName, setNewCuName] = useState('');
+  const [discoverStatus, setDiscoverStatus] = useState('');
+  const [discoverError, setDiscoverError] = useState('');
+  const [isDiscovering, setIsDiscovering] = useState(false);
+  const [deleteCuIp, setDeleteCuIp] = useState('');
+  const [deleteStatus, setDeleteStatus] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [isDeletingCu, setIsDeletingCu] = useState(false);
   const [connected, setConnected] = useState(false);
   const [filter, setFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('ALL');
@@ -88,8 +97,13 @@ function App() {
     }
   }, []);
 
-  const refreshHistory = useCallback(() => {
-    fetch(HISTORY_URL)
+  const refreshHistory = useCallback((nodeId = 'ALL') => {
+    const url =
+      nodeId === 'ALL'
+        ? HISTORY_URL
+        : `${HISTORY_URL}?rn_id=${encodeURIComponent(nodeId)}`;
+
+    fetch(url)
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data.history)) {
@@ -100,10 +114,95 @@ function App() {
   }, []);
 
   useEffect(() => {
-    refreshHistory();
-    const timer = setInterval(refreshHistory, 60000);
+    refreshHistory(selectedNodeId);
+    const timer = setInterval(() => refreshHistory(selectedNodeId), 60000);
     return () => clearInterval(timer);
-  }, [refreshHistory]);
+  }, [refreshHistory, selectedNodeId]);
+
+  const handleDiscoverCu = async (e) => {
+    e.preventDefault();
+    setDiscoverStatus('');
+    setDiscoverError('');
+
+    const ip = newCuIp.trim();
+    if (!ip) {
+      setDiscoverError('Enter a CU IP address.');
+      return;
+    }
+
+    setIsDiscovering(true);
+    try {
+      const response = await fetch('/api/cus/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, name: newCuName.trim() || null }),
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : { detail: await response.text() };
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Unable to discover CU');
+      }
+
+      if (Array.isArray(data.nodes)) {
+        setNodes(data.nodes);
+      }
+      refreshHistory(selectedNodeId);
+      setDiscoverStatus(data.message || 'CU added successfully.');
+      setNewCuIp('');
+      setNewCuName('');
+      setSelectedNodeId('ALL');
+    } catch (error) {
+      setDiscoverError(error.message || 'Discovery failed.');
+    } finally {
+      setIsDiscovering(false);
+    }
+  };
+
+  const handleDeleteCu = async (e) => {
+    e.preventDefault();
+    setDeleteStatus('');
+    setDeleteError('');
+
+    const ip = deleteCuIp.trim();
+    if (!ip) {
+      setDeleteError('Select a CU to delete.');
+      return;
+    }
+
+    setIsDeletingCu(true);
+    try {
+      const response = await fetch('/api/cus', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip }),
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : { detail: await response.text() };
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Unable to delete CU');
+      }
+
+      if (Array.isArray(data.nodes)) {
+        setNodes(data.nodes);
+      }
+      refreshHistory(selectedNodeId);
+      setDeleteStatus(data.message || 'CU removed successfully.');
+      setDeleteCuIp('');
+      setSelectedNodeId('ALL');
+    } catch (error) {
+      setDeleteError(error.message || 'Delete failed.');
+    } finally {
+      setIsDeletingCu(false);
+    }
+  };
 
   // -----------------------------------------------------------------------
   // Derived data — filtering & sorting
@@ -148,12 +247,8 @@ function App() {
 
   const historyBars = useMemo(() => {
     const buckets = new Map();
-    const filteredHistory =
-      selectedNodeId === 'ALL'
-        ? history
-        : history.filter((entry) => entry.rn_id === selectedNodeId);
 
-    filteredHistory.forEach((entry) => {
+    history.forEach((entry) => {
       const timestamp = new Date(entry.timestamp);
       if (Number.isNaN(timestamp.getTime())) return;
 
@@ -184,6 +279,17 @@ function App() {
       }));
   }, [nodes]);
 
+  const cuOptions = useMemo(() => {
+    const seen = new Set();
+    return nodes
+      .filter((node) => node.cu_ip && !seen.has(node.cu_ip) && seen.add(node.cu_ip))
+      .sort((a, b) => a.cu_name.localeCompare(b.cu_name))
+      .map((node) => ({
+        value: node.cu_ip,
+        label: `${node.cu_name} (${node.cu_ip})`,
+      }));
+  }, [nodes]);
+
   const selectedNodeLabel = useMemo(() => {
     if (selectedNodeId === 'ALL') return 'All nodes';
     const node = nodes.find((item) => `${item.cu_name}-${item.rn_id}` === selectedNodeId);
@@ -191,11 +297,8 @@ function App() {
   }, [nodes, selectedNodeId]);
 
   const selectedHistoryRows = useMemo(() => {
-    if (selectedNodeId === 'ALL') return history.slice(0, 8);
-    return history
-      .filter((entry) => entry.rn_id === selectedNodeId)
-      .slice(0, 8);
-  }, [history, selectedNodeId]);
+    return history.slice(0, 8);
+  }, [history]);
 
   // -----------------------------------------------------------------------
   // Sorting handler
@@ -227,6 +330,44 @@ function App() {
           {connected ? 'Live' : 'Reconnecting…'}
         </div>
       </header>
+
+      <form className="discover-bar" onSubmit={handleDiscoverCu}>
+        <input
+          type="text"
+          placeholder="Enter CU IP"
+          value={newCuIp}
+          onChange={(e) => setNewCuIp(e.target.value)}
+        />
+        <input
+          type="text"
+          placeholder="Optional CU name"
+          value={newCuName}
+          onChange={(e) => setNewCuName(e.target.value)}
+        />
+        <button type="submit" disabled={isDiscovering}>
+          {isDiscovering ? 'Discovering...' : 'Add CU'}
+        </button>
+      </form>
+
+      {discoverStatus && <div className="discover-message success">{discoverStatus}</div>}
+      {discoverError && <div className="discover-message error">{discoverError}</div>}
+
+      <form className="delete-bar" onSubmit={handleDeleteCu}>
+        <select value={deleteCuIp} onChange={(e) => setDeleteCuIp(e.target.value)}>
+          <option value="">Delete a monitored CU</option>
+          {cuOptions.map((cu) => (
+            <option key={cu.value} value={cu.value}>
+              {cu.label}
+            </option>
+          ))}
+        </select>
+        <button type="submit" className="danger" disabled={isDeletingCu || cuOptions.length === 0}>
+          {isDeletingCu ? 'Deleting...' : 'Delete CU'}
+        </button>
+      </form>
+
+      {deleteStatus && <div className="discover-message success">{deleteStatus}</div>}
+      {deleteError && <div className="discover-message error">{deleteError}</div>}
 
       {/* Summary stats */}
       <div className="stats-row">

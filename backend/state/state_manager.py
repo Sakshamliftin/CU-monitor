@@ -44,3 +44,10 @@ class StateManager:
         """
         with self._lock:
             return list(self._store.values())
+
+    def remove_cu(self, cu_name: str) -> None:
+        """Remove every RN state that belongs to the given CU."""
+        with self._lock:
+            keys_to_delete = [key for key in self._store if key[0] == cu_name]
+            for key in keys_to_delete:
+                del self._store[key]

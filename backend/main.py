@@ -13,9 +13,10 @@ from pathlib import Path
 
 # create server,enable react frontend
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 mimetypes.add_type("application/javascript", ".jsx")
 
@@ -33,6 +34,11 @@ logging.basicConfig(
     format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+
+class DiscoverCURequest(BaseModel):
+    ip: str
+    name: str | None = None
 
 settings = load_settings()
 db_manager = DBManager()
@@ -90,9 +96,61 @@ def get_events():
     }
 
 @app.get("/api/history")
-def get_history():
+def get_history(rn_id: str | None = None):
     return {
-        "history": db_manager.get_status_history(limit=200),
+        "history": db_manager.get_status_history(limit=200, rn_id=rn_id),
+    }
+
+
+@app.post("/api/cus/discover")
+def discover_cu(payload: DiscoverCURequest):
+    try:
+        discovered = monitor_service.discover_and_add_cu(payload.ip, payload.name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("CU discovery failed for %s", payload.ip)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Unable to discover CU at {payload.ip}: {exc}",
+        ) from exc
+
+    monitor_service.poll_all()
+
+    return {
+        "message": f"Discovered {len(discovered.rns)} RN(s) for {discovered.name}",
+        "cu": {
+            "name": discovered.name,
+            "ip": discovered.ip,
+            "rn_count": len(discovered.rns),
+        },
+        "nodes": [s.to_dict() for s in state_manager.get_all()],
+    }
+
+
+@app.delete("/api/cus")
+def delete_cu(payload: DiscoverCURequest):
+    try:
+        removed = monitor_service.remove_cu(payload.ip)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("CU delete failed for %s", payload.ip)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Unable to delete CU at {payload.ip}: {exc}",
+        ) from exc
+
+    monitor_service.poll_all()
+
+    return {
+        "message": f"Removed {removed.name}",
+        "cu": {
+            "name": removed.name,
+            "ip": removed.ip,
+            "rn_count": len(removed.rns),
+        },
+        "nodes": [s.to_dict() for s in state_manager.get_all()],
     }
 
 @app.websocket("/ws")

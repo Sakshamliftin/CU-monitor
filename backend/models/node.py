@@ -26,6 +26,7 @@ class RNState:
     rn_id: str
     cu_id: str
     cu_name: str
+    cu_ip: str
     rn_name: str
     ip: str
     pci: int = 0
@@ -43,6 +44,7 @@ class RNState:
             "rn_id": self.rn_id,
             "cu_id": self.cu_id,
             "cu_name": self.cu_name,
+            "cu_ip": self.cu_ip,
             "rn_name": self.rn_name,
             "ip": self.ip,
             "pci": self.pci,

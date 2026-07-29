@@ -109,12 +109,31 @@ class DBManager:
             logger.exception("Failed to get all current status")
             return []
 
-    def get_status_history(self, limit: int = 100) -> List[Dict[str, Any]]:
-        """Return recent status history records."""
+    def delete_current_status_by_cu(self, cu_id: str) -> None:
+        """Delete all current status rows for a given CU."""
         try:
             with self._get_connection() as conn:
                 cursor = conn.cursor()
-                cursor.execute("SELECT * FROM status_history ORDER BY timestamp DESC LIMIT ?", (limit,))
+                cursor.execute("DELETE FROM current_status WHERE cu_id = ?", (cu_id,))
+                conn.commit()
+        except Exception:
+            logger.exception("Failed to delete current status rows for CU %s", cu_id)
+
+    def get_status_history(self, limit: int = 100, rn_id: str | None = None) -> List[Dict[str, Any]]:
+        """Return recent status history records, optionally filtered by RN."""
+        try:
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                if rn_id:
+                    cursor.execute(
+                        "SELECT * FROM status_history WHERE rn_id = ? ORDER BY timestamp DESC LIMIT ?",
+                        (rn_id, limit),
+                    )
+                else:
+                    cursor.execute(
+                        "SELECT * FROM status_history ORDER BY timestamp DESC LIMIT ?",
+                        (limit,),
+                    )
                 return [dict(row) for row in cursor.fetchall()]
         except Exception as e:
             logger.exception("Failed to get status history")
